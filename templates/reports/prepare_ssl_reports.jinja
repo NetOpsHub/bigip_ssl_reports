@@ -1,0 +1,3 @@
+{% for app in include_master_variables.apps %}
+{{inventory_hostname}};{{app.name}};{{app.destination_address}};{{app.destination_port}};{{app.client_ssl}};{{app.cert}};{{app.chain}};{{app.options.sslv3}};{{app.options.tlsv1}};{{app.options.tlsv1_1}};{{app.options.tlsv1_2}};{{app.options.tlsv1_3}};{{app.subject}};{{app.issuer}};{{app.expiration_date}};{{app.server_ssl}}
+{% endfor %}

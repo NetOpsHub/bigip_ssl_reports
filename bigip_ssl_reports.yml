@@ -1,0 +1,131 @@
+
+- name: prepare directory to store log files
+  hosts: all
+  strategy: linear
+  
+  tasks:
+    - name: prepare directory to store log files
+      file:
+        path: "{{item}}"
+        state: directory
+      with_items:
+        - files/vars
+        - files/reports/{{inventory_hostname}}
+      when: not (item is exists)
+      delegate_to: localhost
+      tags:
+        - always
+        
+- name: collect magic variables for bigip devices
+  hosts: all
+  strategy: linear
+  
+  tasks:
+    - name: collect magic variables for bigip devices
+      bigip_device_info:
+        provider: "{{provider}}"
+        gather_subset:
+          - virtual-servers
+          - client-ssl-profiles
+          - ssl-certs
+          - ltm-pools
+      register: collect_magic_variables
+      delegate_to: localhost
+      tags:
+        - collect_magic_variables
+        
+    - name: copy magic variables into log files
+      template:
+        src: templates/vars/collect_magic_variables.jinja
+        dest: files/vars/{{inventory_hostname}}.mvars
+      delegate_to: localhost
+      tags:
+        - collect_magic_variables
+
+- name: collect static variables for bigip devices
+  hosts: all
+  strategy: linear
+
+  tasks:
+    - name: collect static variables for bigip devices
+      bigip_command:
+        provider: "{{provider}}"
+        chdir: /
+        commands: list ltm profile client-ssl recursive
+      register: collect_static_variables
+      delegate_to: localhost
+      tags:
+        - collect_static_variables
+        
+    - name: copy static variables into log files
+      template:
+        src: templates/vars/collect_static_variables.jinja
+        dest: files/vars/{{inventory_hostname}}.svars
+      delegate_to: localhost
+      tags:
+        - collect_static_variables
+
+- name: collect master variables for bigip devices
+  hosts: all
+  strategy: linear
+
+  tasks:
+    - name: include magic variables into play
+      include_vars:
+        file: files/vars/{{inventory_hostname}}.mvars
+        name: include_magic_variables
+      delegate_to: localhost
+      tags:
+        - collect_master_variables
+        
+    - name: include static variables into play
+      include_vars:
+        file: files/vars/{{inventory_hostname}}.svars
+        name: include_static_variables
+      delegate_to: localhost
+      tags:
+        - collect_master_variables
+        
+    - name: copy master variables into log files
+      template:
+        src: templates/vars/collect_master_variables.jinja
+        dest: files/vars/{{inventory_hostname}}.vars
+      delegate_to: localhost
+      tags:
+        - collect_master_variables
+
+- name: prepare ssl reports for bigip devices
+  hosts: all
+  strategy: linear
+  
+  tasks:
+    - name: include master variables into play
+      include_vars: 
+        file: files/vars/{{inventory_hostname}}.vars
+        name: include_master_variables
+      delegate_to: localhost
+      tags:
+        - prepare_ssl_reports
+        
+    - name: prepare ssl reports for bigip devices
+      template:
+        src: templates/reports/prepare_ssl_reports.jinja
+        dest: files/reports/{{inventory_hostname}}/{{inventory_hostname}}_SSL.report
+      delegate_to: localhost
+      tags:
+        - prepare_ssl_reports
+        
+- name: consolidate ssl reports for bigip devices
+  hosts: localhost
+  strategy: linear
+  
+  tasks:
+    - name: consolidate ssl reports for bigip devices
+      shell: "{{item}}"
+      with_items:
+        - echo "LB;Virtual;Virtual IP;Virtual Port;Client SSL;SSL Certificate;SSL Chain;SSLv3 Support;TLSv1 Support;TLSv1_1 Support;TLSv1_2 Support;TLSv1_3 Support;Certificate Subject;Certificate Issuer;Certificate Expiration;Server SSL" > files/reports/{{"%Y%m%d" | strftime}}_SSL.csv
+        - cat files/reports/*/*_SSL.report >> files/reports/{{"%Y%m%d" | strftime}}_SSL.csv
+      run_once: yes
+      delegate_to: localhost
+      tags:
+        - consolidate_ssl_reports

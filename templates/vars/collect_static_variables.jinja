@@ -1,0 +1,16 @@
+
+client_ssl_profiles:
+{% for line in collect_static_variables.stdout_lines.0 %}
+{% if line is search("ltm\\sprofile\\sclient-ssl") %}
+- name: {{line | regex_replace("ltm\\sprofile\\sclient-ssl\\s(.*)\\s{","/\\1")}}
+{% endif %}
+{% if line is search("[\\s]{12}cert") %}
+  cert: {{line | regex_replace("[\\s]{12}cert\\s(.*)","/\\1")}}
+{% endif %}
+{% if line is search("[\\s]{12}chain") %}
+  chain: {{line | regex_replace("[\\s]{12}chain\\s(.*)","/\\1")}}
+{% endif %}
+{% if line is search("\\s{4}options") %}
+  options: {{line | regex_replace("\\s{4}options\\s{\\s(.*)\\s}","\\1")}}
+{% endif %}
+{% endfor %}

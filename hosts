@@ -1,0 +1,4 @@
+
+[network_loadbalancer_group] # standby devices
+
+CPN01-CHN-LB01 ansible_host=10.0.254.120
